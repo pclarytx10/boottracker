@@ -10,6 +10,15 @@ class TextType(Enum):
     IMAGE = "image"
 
 
+class BlockType(Enum):
+    PARAGRAPH = "paragraph"
+    HEADING = "heading"
+    CODE = "code"
+    QUOTE = "quote"
+    UNORDERED_LIST = "unordered_list"
+    ORDERED_LIST = "ordered_list"
+
+
 class TextNode:
     def __init__(self, text, text_type, url=None):
         self.text = text
@@ -142,3 +151,149 @@ def text_to_textnodes(text):
     nodes = split_nodes_image(nodes)
     nodes = split_nodes_link(nodes)
     return nodes
+
+
+def markdown_to_blocks(markdown):
+    blocks = markdown.split('\n\n')
+    result = []
+    
+    for block in blocks:
+        stripped_block = block.strip()
+        if stripped_block:
+            result.append(stripped_block)
+    
+    return result
+
+
+def block_to_block_type(block):
+    lines = block.split('\n')
+    
+    # Check for heading
+    if block.startswith(('# ', '## ', '### ', '#### ', '##### ', '###### ')):
+        return BlockType.HEADING
+    
+    # Check for code block
+    if block.startswith('```') and block.endswith('```') and len(block) > 6:
+        return BlockType.CODE
+    
+    # Check for quote block
+    if all(line.startswith('> ') for line in lines):
+        return BlockType.QUOTE
+    
+    # Check for unordered list
+    if all(line.startswith('- ') for line in lines):
+        return BlockType.UNORDERED_LIST
+    
+    # Check for ordered list
+    if len(lines) > 0:
+        is_ordered_list = True
+        for i, line in enumerate(lines):
+            expected_number = str(i + 1) + '. '
+            if not line.startswith(expected_number):
+                is_ordered_list = False
+                break
+        if is_ordered_list:
+            return BlockType.ORDERED_LIST
+    
+    # Default to paragraph
+    return BlockType.PARAGRAPH
+
+
+def text_to_children(text):
+    from htmlnode import text_node_to_html_node
+    
+    text_nodes = text_to_textnodes(text)
+    children = []
+    
+    for text_node in text_nodes:
+        html_node = text_node_to_html_node(text_node)
+        children.append(html_node)
+    
+    return children
+
+
+def markdown_to_html_node(markdown):
+    from htmlnode import ParentNode, LeafNode, text_node_to_html_node
+    
+    blocks = markdown_to_blocks(markdown)
+    block_nodes = []
+    
+    for block in blocks:
+        block_type = block_to_block_type(block)
+        
+        if block_type == BlockType.PARAGRAPH:
+            # Replace newlines with spaces in paragraphs
+            paragraph_text = block.replace('\n', ' ')
+            children = text_to_children(paragraph_text)
+            block_nodes.append(ParentNode("p", children))
+            
+        elif block_type == BlockType.HEADING:
+            # Count the number of # characters
+            level = 0
+            for char in block:
+                if char == '#':
+                    level += 1
+                else:
+                    break
+            
+            # Extract heading text after "# "
+            heading_text = block[level+1:]  # Skip the # characters and space
+            children = text_to_children(heading_text)
+            block_nodes.append(ParentNode(f"h{level}", children))
+            
+        elif block_type == BlockType.CODE:
+            # Extract code content by finding first and last ``` positions
+            first_newline = block.find('\n')
+            last_backticks = block.rfind('```')
+            
+            if first_newline != -1 and last_backticks > first_newline:
+                # Extract everything between the first newline and the last ```
+                code_content = block[first_newline + 1:last_backticks]
+            else:
+                code_content = ""
+            
+            # Create text node without inline parsing
+            code_text_node = TextNode(code_content, TextType.TEXT)
+            code_html_node = text_node_to_html_node(code_text_node)
+            
+            # Wrap in pre > code
+            code_parent = ParentNode("code", [code_html_node])
+            block_nodes.append(ParentNode("pre", [code_parent]))
+            
+        elif block_type == BlockType.QUOTE:
+            # Extract quote content (remove "> " from each line)
+            lines = block.split('\n')
+            quote_lines = []
+            for line in lines:
+                quote_lines.append(line[2:])  # Remove "> "
+            quote_text = '\n'.join(quote_lines)
+            
+            children = text_to_children(quote_text)
+            block_nodes.append(ParentNode("blockquote", children))
+            
+        elif block_type == BlockType.UNORDERED_LIST:
+            # Extract list items (remove "- " from each line)
+            lines = block.split('\n')
+            list_items = []
+            for line in lines:
+                item_text = line[2:]  # Remove "- "
+                item_children = text_to_children(item_text)
+                list_items.append(ParentNode("li", item_children))
+            
+            block_nodes.append(ParentNode("ul", list_items))
+            
+        elif block_type == BlockType.ORDERED_LIST:
+            # Extract list items (remove "1. ", "2. ", etc. from each line)
+            lines = block.split('\n')
+            list_items = []
+            for line in lines:
+                # Find the first space after the number and period
+                dot_index = line.find('. ')
+                item_text = line[dot_index + 2:]  # Remove "1. " etc.
+                item_children = text_to_children(item_text)
+                list_items.append(ParentNode("li", item_children))
+            
+            block_nodes.append(ParentNode("ol", list_items))
+    
+    # Wrap all block nodes in a div
+    return ParentNode("div", block_nodes)

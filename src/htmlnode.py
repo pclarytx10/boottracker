@@ -30,6 +30,11 @@ class LeafNode(HTMLNode):
             raise ValueError("invalid HTML: no value")
         if self.tag is None:
             return self.value
+        
+        # Handle self-closing tags
+        if self.tag == "img":
+            return f"<{self.tag}{self.props_to_html()}>"
+        
         return f"<{self.tag}{self.props_to_html()}>{self.value}</{self.tag}>"
 
     def __repr__(self):
@@ -57,7 +62,7 @@ class ParentNode(HTMLNode):
 
 
 def text_node_to_html_node(text_node):
-    from src.textnode import TextType
+    from textnode import TextType
     
     if text_node.text_type == TextType.TEXT:
         return LeafNode(None, text_node.text)
