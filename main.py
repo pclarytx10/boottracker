@@ -1,5 +1,6 @@
 import os
 import shutil
+import sys
 from src.textnode import generate_pages_recursive
 
 
@@ -37,20 +38,23 @@ def copy_static_files(static_dir, public_dir):
 
 
 def main():
+    # Get basepath from CLI argument, default to "/"
+    basepath = sys.argv[1] if len(sys.argv) > 1 else "/"
+    
     # Define paths
-    public_dir = "public"
+    public_dir = "docs"
     static_dir = "static"
     content_dir = "content"
     template_file = "template.html"
     
-    # Step 1: Delete everything in public directory
+    # Step 1: Delete everything in docs directory
     delete_public_directory(public_dir)
     
-    # Step 2: Copy all static files from static to public
+    # Step 2: Copy all static files from static to docs
     copy_static_files(static_dir, public_dir)
     
     # Step 3: Generate pages recursively from content directory
-    generate_pages_recursive(content_dir, template_file, public_dir)
+    generate_pages_recursive(content_dir, template_file, public_dir, basepath)
     
     print("Static site generation complete!")
 
