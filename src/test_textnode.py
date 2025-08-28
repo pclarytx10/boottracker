@@ -1,6 +1,6 @@
 import unittest
 
-from textnode import TextNode, TextType, BlockType, split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_image, split_nodes_link, text_to_textnodes, markdown_to_blocks, block_to_block_type, text_to_children, markdown_to_html_node
+from textnode import TextNode, TextType, BlockType, split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_image, split_nodes_link, text_to_textnodes, markdown_to_blocks, block_to_block_type, text_to_children, markdown_to_html_node, extract_title, generate_page
 
 
 class TestTextNode(unittest.TestCase):
@@ -1144,6 +1144,109 @@ This paragraph has **bold**, *italic*, `code`, [link](https://example.com), and 
             html,
             "<div><h1>This is a <b>bold</b> heading</h1></div>",
         )
+
+
+class TestExtractTitle(unittest.TestCase):
+    def test_extract_title_basic(self):
+        markdown = "# Hello"
+        title = extract_title(markdown)
+        self.assertEqual(title, "Hello")
+
+    def test_extract_title_with_whitespace(self):
+        markdown = "#   Spaced Title   "
+        title = extract_title(markdown)
+        self.assertEqual(title, "Spaced Title")
+
+    def test_extract_title_multiline(self):
+        markdown = """Some text
+
+# My Title
+
+More content here"""
+        title = extract_title(markdown)
+        self.assertEqual(title, "My Title")
+
+    def test_extract_title_with_markdown_formatting(self):
+        markdown = "# This is a **bold** title"
+        title = extract_title(markdown)
+        self.assertEqual(title, "This is a **bold** title")
+
+    def test_extract_title_with_leading_whitespace(self):
+        markdown = "   # Indented Title"
+        title = extract_title(markdown)
+        self.assertEqual(title, "Indented Title")
+
+    def test_extract_title_h1_before_h2(self):
+        markdown = """# First Title
+
+## Second Title
+
+### Third Title"""
+        title = extract_title(markdown)
+        self.assertEqual(title, "First Title")
+
+    def test_extract_title_no_space_after_hash(self):
+        markdown = "#NoSpaceTitle"
+        with self.assertRaises(ValueError) as context:
+            extract_title(markdown)
+        self.assertIn("No h1 header found in markdown", str(context.exception))
+
+    def test_extract_title_no_h1_header(self):
+        markdown = """This is just plain text.
+
+## This is an h2
+
+### This is an h3"""
+        with self.assertRaises(ValueError) as context:
+            extract_title(markdown)
+        self.assertIn("No h1 header found in markdown", str(context.exception))
+
+    def test_extract_title_empty_string(self):
+        markdown = ""
+        with self.assertRaises(ValueError) as context:
+            extract_title(markdown)
+        self.assertIn("No h1 header found in markdown", str(context.exception))
+
+    def test_extract_title_only_h2_h3(self):
+        markdown = """## Heading 2
+
+### Heading 3
+
+#### Heading 4"""
+        with self.assertRaises(ValueError) as context:
+            extract_title(markdown)
+        self.assertIn("No h1 header found in markdown", str(context.exception))
+
+    def test_extract_title_empty_h1(self):
+        markdown = "# "
+        title = extract_title(markdown)
+        self.assertEqual(title, "")
+
+    def test_extract_title_h1_with_multiple_spaces(self):
+        markdown = "#     Multiple   Spaces   Title     "
+        title = extract_title(markdown)
+        self.assertEqual(title, "Multiple   Spaces   Title")
+
+    def test_extract_title_first_h1_wins(self):
+        markdown = """# First H1
+
+Some content
+
+# Second H1"""
+        title = extract_title(markdown)
+        self.assertEqual(title, "First H1")
+
+    def test_extract_title_mixed_content(self):
+        markdown = """This is a paragraph.
+
+- A list item
+- Another item
+
+# The Actual Title
+
+More content follows."""
+        title = extract_title(markdown)
+        self.assertEqual(title, "The Actual Title")
 
 
 if __name__ == "__main__":

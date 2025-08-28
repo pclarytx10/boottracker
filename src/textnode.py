@@ -1,5 +1,6 @@
 from enum import Enum
 import re
+import os
 
 class TextType(Enum):
     TEXT = "text"
@@ -154,9 +155,28 @@ def text_to_textnodes(text):
 
 
 def markdown_to_blocks(markdown):
-    blocks = markdown.split('\n\n')
-    result = []
+    lines = markdown.split('\n')
+    blocks = []
+    current_block = []
     
+    for line in lines:
+        stripped_line = line.strip()
+        
+        # If we encounter an empty line and we have content in current_block
+        if not stripped_line and current_block:
+            # Join the current block and add it to blocks
+            blocks.append('\n'.join(current_block))
+            current_block = []
+        elif stripped_line:
+            # Add non-empty line to current block
+            current_block.append(line)
+    
+    # Don't forget the last block if there's content
+    if current_block:
+        blocks.append('\n'.join(current_block))
+    
+    # Clean up blocks (remove leading/trailing whitespace)
+    result = []
     for block in blocks:
         stripped_block = block.strip()
         if stripped_block:
@@ -177,7 +197,7 @@ def block_to_block_type(block):
         return BlockType.CODE
     
     # Check for quote block
-    if all(line.startswith('> ') for line in lines):
+    if all(line.startswith('> ') or line == '>' for line in lines):
         return BlockType.QUOTE
     
     # Check for unordered list
@@ -200,7 +220,10 @@ def block_to_block_type(block):
 
 
 def text_to_children(text):
-    from htmlnode import text_node_to_html_node
+    try:
+        from htmlnode import text_node_to_html_node
+    except ImportError:
+        from .htmlnode import text_node_to_html_node
     
     text_nodes = text_to_textnodes(text)
     children = []
@@ -212,8 +235,59 @@ def text_to_children(text):
     return children
 
 
+def extract_title(markdown):
+    lines = markdown.split('\n')
+    
+    for line in lines:
+        stripped_line = line.strip()
+        
+        # Check if line starts with exactly "# " (h1) and not "## " (h2+)
+        if stripped_line.startswith('# ') and not stripped_line.startswith('## '):
+            return stripped_line[2:].strip()
+        # Handle edge case: "# " becomes "#" after stripping
+        elif stripped_line == '#' and line.endswith(' '):
+            return ""
+    
+    raise ValueError("No h1 header found in markdown")
+
+
+def generate_page(from_path, template_path, dest_path):
+    print(f"Generating page from {from_path} to {dest_path} using {template_path}")
+    
+    # Read the markdown file
+    with open(from_path, 'r', encoding='utf-8') as f:
+        markdown_content = f.read()
+    
+    # Read the template file
+    with open(template_path, 'r', encoding='utf-8') as f:
+        template_content = f.read()
+    
+    # Convert markdown to HTML
+    html_node = markdown_to_html_node(markdown_content)
+    html_content = html_node.to_html()
+    
+    # Extract the title
+    title = extract_title(markdown_content)
+    
+    # Replace placeholders in template
+    final_html = template_content.replace('{{ Title }}', title)
+    final_html = final_html.replace('{{ Content }}', html_content)
+    
+    # Create destination directory if it doesn't exist
+    dest_dir = os.path.dirname(dest_path)
+    if dest_dir and not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+    
+    # Write the final HTML to the destination file
+    with open(dest_path, 'w', encoding='utf-8') as f:
+        f.write(final_html)
+
+
 def markdown_to_html_node(markdown):
-    from htmlnode import ParentNode, LeafNode, text_node_to_html_node
+    try:
+        from htmlnode import ParentNode, text_node_to_html_node
+    except ImportError:
+        from .htmlnode import ParentNode, text_node_to_html_node
     
     blocks = markdown_to_blocks(markdown)
     block_nodes = []
@@ -261,11 +335,16 @@ def markdown_to_html_node(markdown):
             block_nodes.append(ParentNode("pre", [code_parent]))
             
         elif block_type == BlockType.QUOTE:
-            # Extract quote content (remove "> " from each line)
+            # Extract quote content (remove ">" from each line)
             lines = block.split('\n')
             quote_lines = []
             for line in lines:
-                quote_lines.append(line[2:])  # Remove "> "
+                if line.startswith('> '):
+                    quote_lines.append(line[2:])  # Remove "> "
+                elif line.startswith('>'):
+                    quote_lines.append(line[1:])  # Remove ">"
+                else:
+                    quote_lines.append(line)  # Keep as is
             quote_text = '\n'.join(quote_lines)
             
             children = text_to_children(quote_text)

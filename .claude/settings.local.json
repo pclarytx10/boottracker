@@ -3,7 +3,10 @@
     "allow": [
       "Bash(python:*)",
       "Bash(mkdir:*)",
-      "Bash(./main.sh:*)"
+      "Bash(./main.sh:*)",
+      "Read(/Users/patrickm/github/**)",
+      "Bash(chmod:*)",
+      "Bash(timeout 3s ./main.sh)"
     ],
     "deny": [],
     "ask": []

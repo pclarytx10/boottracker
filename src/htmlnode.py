@@ -62,7 +62,10 @@ class ParentNode(HTMLNode):
 
 
 def text_node_to_html_node(text_node):
-    from textnode import TextType
+    try:
+        from textnode import TextType
+    except ImportError:
+        from .textnode import TextType
     
     if text_node.text_type == TextType.TEXT:
         return LeafNode(None, text_node.text)
