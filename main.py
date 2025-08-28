@@ -1,6 +1,6 @@
 import os
 import shutil
-from src.textnode import generate_page
+from src.textnode import generate_pages_recursive
 
 
 def delete_public_directory(public_dir):
@@ -40,9 +40,8 @@ def main():
     # Define paths
     public_dir = "public"
     static_dir = "static"
-    content_file = "content/index.md"
+    content_dir = "content"
     template_file = "template.html"
-    output_file = os.path.join(public_dir, "index.html")
     
     # Step 1: Delete everything in public directory
     delete_public_directory(public_dir)
@@ -50,8 +49,8 @@ def main():
     # Step 2: Copy all static files from static to public
     copy_static_files(static_dir, public_dir)
     
-    # Step 3: Generate page from content/index.md using template.html
-    generate_page(content_file, template_file, output_file)
+    # Step 3: Generate pages recursively from content directory
+    generate_pages_recursive(content_dir, template_file, public_dir)
     
     print("Static site generation complete!")
 

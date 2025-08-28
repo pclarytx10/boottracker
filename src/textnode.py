@@ -376,3 +376,42 @@ def markdown_to_html_node(markdown):
     
     # Wrap all block nodes in a div
     return ParentNode("div", block_nodes)
+
+
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+    """
+    Recursively crawl the content directory and generate HTML pages for all markdown files.
+    
+    Args:
+        dir_path_content: Path to the content directory
+        template_path: Path to the HTML template file
+        dest_dir_path: Path to the destination directory for generated HTML files
+    """
+    print(f"Generating pages recursively from {dir_path_content} to {dest_dir_path}")
+    
+    # Create destination directory if it doesn't exist
+    if not os.path.exists(dest_dir_path):
+        os.makedirs(dest_dir_path)
+    
+    # Walk through the content directory
+    for root, dirs, files in os.walk(dir_path_content):
+        # Calculate the relative path from content directory
+        rel_path = os.path.relpath(root, dir_path_content)
+        
+        # Create corresponding directory in destination
+        dest_subdir = os.path.join(dest_dir_path, rel_path)
+        if rel_path != '.' and not os.path.exists(dest_subdir):
+            os.makedirs(dest_subdir)
+        
+        # Process each file in the current directory
+        for file in files:
+            if file.endswith('.md'):
+                # Source markdown file path
+                source_path = os.path.join(root, file)
+                
+                # Destination HTML file path (replace .md with .html)
+                html_filename = file.replace('.md', '.html')
+                dest_path = os.path.join(dest_subdir, html_filename)
+                
+                # Generate the HTML page
+                generate_page(source_path, template_path, dest_path)
